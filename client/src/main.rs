@@ -1,7 +1,40 @@
-use core;
+// use core;
+mod takoui;
 
-fn main() {
-    println!("Hello, world!");
-    let res = core::add(1, 2);
-    println!("1 + 2 = {}", res);
+use takoui::{app, event, update, tui};
+
+use anyhow::Result;
+use app::App;
+use event::{Event, EventHandler};
+use ratatui::{backend::CrosstermBackend, Terminal};
+use tui::Tui;
+use update::update;
+
+fn main() -> Result<()> {
+    // Create an application.
+    let mut app = App::new();
+
+    // Initialize the terminal user interface.
+    let backend = CrosstermBackend::new(std::io::stderr());
+    let terminal = Terminal::new(backend)?;
+    let events = EventHandler::new(250);
+    let mut tui = Tui::new(terminal, events);
+    tui.enter()?;
+
+    // Start the main loop.
+    while !app.should_quit {
+        // Render the user interface.
+        tui.draw(&mut app)?;
+        // Handle events.
+        match tui.events.next()? {
+            Event::Tick => {}
+            Event::Key(key_event) => update(&mut app, key_event),
+            Event::Mouse(_) => {}
+            Event::Resize(_, _) => {}
+        };
+    }
+
+    // Exit the user interface.
+    tui.exit()?;
+    Ok(())
 }
