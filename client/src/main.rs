@@ -1,40 +1,54 @@
-// use core;
-mod takoui;
+use std::result::Result;
+use std::{error::Error, io};
 
-use takoui::{app, event, update, tui};
+use crossterm::event::KeyCode;
+use crossterm::{
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
+use ratatui::widgets::Paragraph;
+use ratatui::Frame;
+use ratatui::{
+    backend::{Backend, CrosstermBackend},
+    Terminal,
+};
 
-use anyhow::Result;
-use app::App;
-use event::{Event, EventHandler};
-use ratatui::{backend::CrosstermBackend, Terminal};
-use tui::Tui;
-use update::update;
+fn main() -> Result<(), Box<dyn Error>> {
+    core::start_mulicast_server();
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut termianl = Terminal::new(backend)?;
 
-fn main() -> Result<()> {
-    // Create an application.
-    let mut app = App::new();
+    // TODO somethine
+    let res = run_app(&mut termianl);
 
-    // Initialize the terminal user interface.
-    let backend = CrosstermBackend::new(std::io::stderr());
-    let terminal = Terminal::new(backend)?;
-    let events = EventHandler::new(250);
-    let mut tui = Tui::new(terminal, events);
-    tui.enter()?;
-
-    // Start the main loop.
-    while !app.should_quit {
-        // Render the user interface.
-        tui.draw(&mut app)?;
-        // Handle events.
-        match tui.events.next()? {
-            Event::Tick => {}
-            Event::Key(key_event) => update(&mut app, key_event),
-            Event::Mouse(_) => {}
-            Event::Resize(_, _) => {}
-        };
+    disable_raw_mode()?;
+    execute!(
+        termianl.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
+    termianl.show_cursor()?;
+    if let Err(err) = res {
+        println!("{err:?}");
     }
-
-    // Exit the user interface.
-    tui.exit()?;
     Ok(())
+}
+
+fn run_app<B: Backend>(termianl: &mut Terminal<B>) -> io::Result<()> {
+    loop {
+        termianl.draw(ui)?;
+        if let Event::Key(key) = event::read()? {
+            if let KeyCode::Char('q') = key.code {
+                return Ok(());
+            }
+        }
+    }
+}
+
+fn ui(frame: &mut Frame) {
+    frame.render_widget(Paragraph::new("hello"), frame.size());
 }
